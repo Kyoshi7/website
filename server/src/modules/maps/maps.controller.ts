@@ -34,41 +34,33 @@ import { ApiOkPaginatedResponse, PaginatedResponseDto } from '../../common/dto/p
 import { MapsService } from './maps.service';
 import { CreateMapDto, MapDto } from '../../common/dto/map/map.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { MapCreditsGetQuery, MapsGetAllQuery, MapsGetQuery } from '../../common/dto/query/map-queries.dto';
+import { MapCreditsGetQuery, MapsCtlGetAllQuery, MapsGetQuery } from '../../common/dto/query/map-queries.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Roles as RolesEnum } from '../../common/enums/user.enum';
 import { LoggedInUser } from '../../common/decorators/logged-in-user.decorator';
 import { CreateMapCreditDto, MapCreditDto, UpdateMapCreditDto } from '../../common/dto/map/map-credit.dto';
 import { MapInfoDto, UpdateMapInfoDto } from '../../common/dto/map/map-info.dto';
 import { MapTrackDto } from '../../common/dto/map/map-track.dto';
+import { MapsCtlRunsGetAllQuery } from '../../common/dto/query/run-queries.dto';
+import { RunDto } from '../../common/dto/run/runs.dto';
+import { RunsService } from '../runs/runs.service';
 
 @ApiBearerAuth()
 @Controller('api/v1/maps')
 @ApiTags('Maps')
 export class MapsController {
-    constructor(private readonly mapsService: MapsService) {}
+    constructor(private readonly mapsService: MapsService, private readonly runsService: RunsService) {}
 
-    //#region Map
+    //#region Main Map Endpoints
 
     @Get()
     @ApiOperation({ summary: 'Returns all maps' })
     @ApiOkPaginatedResponse(MapDto, { description: 'Paginated list of maps' })
     getAllMaps(
         @LoggedInUser('id') userID: number,
-        @Query() query?: MapsGetAllQuery
+        @Query() query?: MapsCtlGetAllQuery
     ): Promise<PaginatedResponseDto<MapDto>> {
-        return this.mapsService.getAll(
-            userID,
-            query.skip,
-            query.take,
-            query.expand,
-            query.search,
-            query.submitterID,
-            query.type,
-            query.difficultyLow,
-            query.difficultyHigh,
-            query.isLinear
-        );
+        return this.mapsService.getAll(userID, query);
     }
 
     @Post()
@@ -112,6 +104,10 @@ export class MapsController {
     ): Promise<MapDto> {
         return this.mapsService.get(mapID, userID, query.expand);
     }
+
+    //#endregion
+
+    //#region Upload/Download
 
     @Get('/:mapID/upload')
     @Roles(RolesEnum.MAPPER)
@@ -175,6 +171,10 @@ export class MapsController {
 
         return this.mapsService.upload(mapID, userID, file.buffer);
     }
+
+    //#endregion
+
+    //#region Credits
 
     @Get('/:mapID/credits')
     @ApiOperation({ summary: "Gets a single map's credits" })
@@ -294,6 +294,10 @@ export class MapsController {
         return this.mapsService.deleteCredit(mapCreditID, userID);
     }
 
+    //#endregion
+
+    //#region Info
+
     @Get('/:mapID/info')
     @ApiOperation({ summary: "Gets a single map's info" })
     @ApiParam({
@@ -323,7 +327,7 @@ export class MapsController {
     @ApiForbiddenResponse({ description: 'User does not have the mapper role' })
     @ApiForbiddenResponse({ description: 'User is not the submitter of this map' })
     @ApiNotFoundResponse({ description: 'Map not found' })
-    updateUser(
+    updateInfo(
         @LoggedInUser('id') userID: number,
         @Body() updateDto: UpdateMapInfoDto,
         @Param('mapID', ParseIntPipe) mapID: number
@@ -333,7 +337,8 @@ export class MapsController {
 
     //#endregion
 
-    //#Zones
+    //#region Zones
+
     @Get('/:mapID/zones')
     @ApiOperation({ summary: "Gets a single map's zones" })
     @ApiParam({
@@ -347,6 +352,27 @@ export class MapsController {
     getZones(@Param('mapID', ParseIntPipe) mapID: number): Promise<MapTrackDto[]> {
         return this.mapsService.getZones(mapID);
     }
+    //#endregion
+
+    //#region Runs
+
+    @Get('/:mapID/runs')
+    @ApiOperation({ summary: 'Returns a paginated list of runs for a specific map' })
+    @ApiParam({
+        name: 'mapID',
+        type: Number,
+        description: 'Target Map ID',
+        required: true
+    })
+    @ApiOkResponse({ description: "The found map's zones" })
+    @ApiNotFoundResponse({ description: 'Map not found' })
+    getRuns(
+        @Param('mapID', ParseIntPipe) mapID: number,
+        @Query() query?: MapsCtlRunsGetAllQuery
+    ): Promise<PaginatedResponseDto<RunDto>> {
+        return this.runsService.getAll(query);
+    }
+
     //#endregion
 
     //#region Private

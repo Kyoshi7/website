@@ -28,19 +28,11 @@ export class UsersController {
     constructor(private readonly usersService: UsersService) {}
 
     @Get()
-    @ApiOperation({ summary: 'Returns all users' })
+    @ApiOperation({ summary: 'Returns paginated list of users' })
     @ApiOkPaginatedResponse(UserDto, { description: 'Paginated list of users' })
     @ApiBadRequestResponse({ description: 'The query contained conflicting parameters' })
     getAll(@Query() query?: UsersGetAllQuery): Promise<PaginatedResponseDto<UserDto>> {
-        return this.usersService.getAll(
-            query.skip,
-            query.take,
-            query.expand,
-            query.search,
-            query.steamID,
-            query.steamIDs,
-            query.mapRank
-        );
+        return this.usersService.getAll(query);
     }
 
     @Get('/:userID')
